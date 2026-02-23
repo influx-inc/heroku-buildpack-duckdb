@@ -2,14 +2,15 @@
 # Installs the DuckDB C library (header + shared object) so the duckdb Ruby gem
 # can compile its native extension during the Ruby buildpack's bundle install.
 #
-# Uses bin/export to set C_INCLUDE_PATH and LIBRARY_PATH so the compiler can
-# find duckdb.h and libduckdb.so. This avoids BUNDLE_BUILD__DUCKDB, which is
-# broken by bundler's backslash-escaping of = signs (rubygems/rubygems#3727).
+# Writes $BP_DIR/export to set C_INCLUDE_PATH and LIBRARY_PATH for the next
+# buildpack. This avoids BUNDLE_BUILD__DUCKDB, which bundler 4.x breaks by
+# backslash-escaping = signs (rubygems/rubygems#3727).
 
 set -euo pipefail
 
 BUILD_DIR="$1"
 CACHE_DIR="$2"
+BP_DIR=$(cd "$(dirname "$0")/.."; pwd)
 
 DUCKDB_VERSION="1.4.3"
 DUCKDB_CACHE="$CACHE_DIR/duckdb-$DUCKDB_VERSION"
@@ -31,6 +32,15 @@ fi
 mkdir -p "$DUCKDB_INSTALL/include" "$DUCKDB_INSTALL/lib"
 cp "$DUCKDB_CACHE/duckdb.h" "$DUCKDB_INSTALL/include/"
 cp "$DUCKDB_CACHE/libduckdb.so" "$DUCKDB_INSTALL/lib/"
+
+# Write export file at buildpack root so the platform sources it before
+# the next buildpack. C_INCLUDE_PATH and LIBRARY_PATH let gcc find
+# duckdb.h and libduckdb.so without any bundler config vars.
+cat > "$BP_DIR/export" <<EXPORT
+export C_INCLUDE_PATH="${DUCKDB_INSTALL}/include\${C_INCLUDE_PATH:+:\$C_INCLUDE_PATH}"
+export LIBRARY_PATH="${DUCKDB_INSTALL}/lib\${LIBRARY_PATH:+:\$LIBRARY_PATH}"
+export LD_LIBRARY_PATH="${DUCKDB_INSTALL}/lib\${LD_LIBRARY_PATH:+:\$LD_LIBRARY_PATH}"
+EXPORT
 
 # Runtime profile.d script — sets LD_LIBRARY_PATH when the dyno boots
 mkdir -p "$BUILD_DIR/.profile.d"
