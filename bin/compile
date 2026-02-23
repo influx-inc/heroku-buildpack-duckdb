@@ -2,9 +2,9 @@
 # Installs the DuckDB C library (header + shared object) so the duckdb Ruby gem
 # can compile its native extension during the Ruby buildpack's bundle install.
 #
-# The Ruby buildpack picks up BUNDLE_BUILD__DUCKDB from Heroku config vars
-# (set via heroku config:set) to pass --with-duckdb-include and --with-duckdb-lib
-# to the gem's extconf.rb.
+# Uses bin/export to set C_INCLUDE_PATH and LIBRARY_PATH so the compiler can
+# find duckdb.h and libduckdb.so. This avoids BUNDLE_BUILD__DUCKDB, which is
+# broken by bundler's backslash-escaping of = signs (rubygems/rubygems#3727).
 
 set -euo pipefail
 
@@ -31,14 +31,6 @@ fi
 mkdir -p "$DUCKDB_INSTALL/include" "$DUCKDB_INSTALL/lib"
 cp "$DUCKDB_CACHE/duckdb.h" "$DUCKDB_INSTALL/include/"
 cp "$DUCKDB_CACHE/libduckdb.so" "$DUCKDB_INSTALL/lib/"
-
-# Also copy to $HOME/vendor/duckdb (/app/vendor/duckdb during build) so
-# BUNDLE_BUILD__DUCKDB paths resolve at build time. $BUILD_DIR is a temp
-# path (/tmp/build_*) but the config var points to /app/vendor/duckdb.
-DUCKDB_BUILD_PATH="$HOME/vendor/duckdb"
-mkdir -p "$DUCKDB_BUILD_PATH/include" "$DUCKDB_BUILD_PATH/lib"
-cp "$DUCKDB_CACHE/duckdb.h" "$DUCKDB_BUILD_PATH/include/"
-cp "$DUCKDB_CACHE/libduckdb.so" "$DUCKDB_BUILD_PATH/lib/"
 
 # Runtime profile.d script — sets LD_LIBRARY_PATH when the dyno boots
 mkdir -p "$BUILD_DIR/.profile.d"
