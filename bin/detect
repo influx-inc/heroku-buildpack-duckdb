@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Detect: always match — this buildpack is opt-in via heroku buildpacks:add
+echo "duckdb"
+exit 0

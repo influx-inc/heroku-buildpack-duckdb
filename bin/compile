@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+# Installs the DuckDB C library (header + shared object) so the duckdb Ruby gem
+# can compile its native extension during the Ruby buildpack's bundle install.
+#
+# Follows the heroku-buildpack-apt pattern: install into $BUILD_DIR/.duckdb/
+# and export paths for downstream buildpacks via $ENV_DIR and profile.d.
+
+set -euo pipefail
+
+BUILD_DIR="$1"
+CACHE_DIR="$2"
+
+DUCKDB_VERSION="1.4.3"
+DUCKDB_CACHE="$CACHE_DIR/duckdb-$DUCKDB_VERSION"
+DUCKDB_URL="https://github.com/duckdb/duckdb/releases/download/v${DUCKDB_VERSION}/libduckdb-linux-amd64.zip"
+DUCKDB_INSTALL="$BUILD_DIR/.duckdb"
+
+echo "-----> Installing DuckDB C library v${DUCKDB_VERSION}"
+
+if [ -d "$DUCKDB_CACHE" ]; then
+  echo "       Using cached DuckDB libraries"
+else
+  echo "       Downloading from GitHub..."
+  mkdir -p "$DUCKDB_CACHE"
+  curl -sL "$DUCKDB_URL" -o "$DUCKDB_CACHE/libduckdb.zip"
+  unzip -qo "$DUCKDB_CACHE/libduckdb.zip" -d "$DUCKDB_CACHE"
+  rm "$DUCKDB_CACHE/libduckdb.zip"
+fi
+
+# Install into app-local directory
+mkdir -p "$DUCKDB_INSTALL/include" "$DUCKDB_INSTALL/lib"
+cp "$DUCKDB_CACHE/duckdb.h" "$DUCKDB_INSTALL/include/"
+cp "$DUCKDB_CACHE/libduckdb.so" "$DUCKDB_INSTALL/lib/"
+
+# Runtime profile.d script — sets LD_LIBRARY_PATH when the dyno boots
+mkdir -p "$BUILD_DIR/.profile.d"
+cat > "$BUILD_DIR/.profile.d/duckdb.sh" <<'PROFILE'
+export LD_LIBRARY_PATH="$HOME/.duckdb/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+PROFILE
+
+echo "-----> DuckDB C library installed"

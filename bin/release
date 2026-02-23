@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# No additional config needed — runtime paths are set via .profile.d/duckdb.sh
+echo "{}"
